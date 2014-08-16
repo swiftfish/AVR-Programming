@@ -4,10 +4,19 @@
 ##########    Check these every time you start a new project    ##########
 ##########------------------------------------------------------##########
 
-MCU   = atmega168
+MCU   = atmega328p
 F_CPU = 1000000
 BAUD = 9600
-## Also try BAUD = 19200 or 38400 if you're feeling lucky.
+## Note that any changes to F_CPU and BAUD will require rebuilding
+## after clean in order to update USART timing
+## 8.0 MHz : 2400, 4800, 9600, 19.2k, 38.4k requires set_fast_fuse
+## 1.0 MHz : 2400, 4800, 9600 requires set_default_fuses
+## Serial settings:	Baudrate = BAUD
+##									Data Bits = 8
+##									Parity = none
+##									Stop Bits = 1
+##									No Flow Control
+
 
 ## This is where your main() routine lives 
 MAIN = serialLoopback.c
@@ -120,6 +129,7 @@ squeaky_clean:
 
 flash: $(TARGET).hex 
 	$(AVRDUDE) -c $(PROGRAMMER_TYPE) -p $(MCU) $(PROGRAMMER_ARGS) -U flash:w:$<
+flash: size
 
 ## An alias
 program: flash
@@ -156,7 +166,7 @@ flash_109: flash
 
 ## Mega 48, 88, 168, 328 default values
 LFUSE = 0x62
-HFUSE = 0xdf
+HFUSE = 0xDF
 EFUSE = 0x00
 
 ## Generic 
@@ -174,9 +184,15 @@ set_default_fuses:  fuses
 
 ## Set the fuse byte for full-speed mode
 ## Note: can also be set in firmware for modern chips
-set_fast_fuse: LFUSE = 0xE2
-set_fast_fuse: FUSE_STRING = -U lfuse:w:$(LFUSE):m 
-set_fast_fuse: fuses
+set_fast_speed: LFUSE = 0xE2
+set_fast_speed: FUSE_STRING = -U lfuse:w:$(LFUSE):m 
+set_fast_speed: fuses
+
+## Set the fuse byte for default-speed mode
+set_default_speed: LFUSE = 0x62
+set_default_speed: FUSE_STRING = -U lfuse:w:$(LFUSE):m 
+set_default_speed: fuses
+
 
 ## Set the EESAVE fuse byte to preserve EEPROM across flashes
 set_eeprom_save_fuse: HFUSE = 0xD7
