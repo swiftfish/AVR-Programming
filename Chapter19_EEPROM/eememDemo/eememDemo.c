@@ -1,6 +1,8 @@
 #include <avr/io.h>
 #include <avr/eeprom.h>
 #include <USART.h>
+/* #include <stdio.h> */
+/* #include <stdlib.h> */
 
 #define STRING_LEN   80
 
@@ -33,5 +35,5 @@ int main(void) {
     counter++;
     eeprom_update_byte(&eepromCounter, counter);
   }
-  return (0);
+  return 0;
 }

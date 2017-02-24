@@ -14,12 +14,12 @@ uint8_t debounce(void) {
       return (1);
     }
   }
-  return (0);
+  return 0;
 }
 
 int main(void) {
   // -------- Inits --------- //
-  uint8_t buttonWasPressed;                                   /* state */
+  uint8_t buttonWasPressed=0;                                 /* state */
   BUTTON_PORT |= (1 << BUTTON);     /* enable the pullup on the button */
   LED_DDR = (1 << LED0);                      /* set up LED for output */
 
@@ -36,5 +36,5 @@ int main(void) {
     }
 
   }                                                  /* End event loop */
-  return (0);                            /* This line is never reached */
+  return 0;                            /* This line is never reached */
 }

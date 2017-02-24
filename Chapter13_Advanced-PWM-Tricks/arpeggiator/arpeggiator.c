@@ -36,8 +36,7 @@ static inline void pollButton(void){
 }
 
 int main(void){
-  uint16_t t;  
-  uint8_t i;
+  uint16_t t=0;  
 
   // -------- Inits --------- //
   clock_prescale_set(clock_div_1);                  /* CPU clock 8 MHz */
@@ -71,7 +70,7 @@ int main(void){
     _delay_us(124);		/* Aiming for 8kHz sample rate */
     
   } /* End event loop */
-  return(0);		      /* This line is never reached  */
+  return 0;		      /* This line is never reached  */
 }
 
 

@@ -4,30 +4,15 @@
 ##########    Check these every time you start a new project    ##########
 ##########------------------------------------------------------##########
 
-MCU   = atmega328p
-F_CPU = 1000000
-BAUD = 9600
-## Note that any changes to F_CPU and BAUD will require rebuilding
-## after clean in order to update USART timing
-## 8.0 MHz : 2400, 4800, 9600, 19.2k, 38.4k requires set_fast_fuse
-## 1.0 MHz : 2400, 4800, 9600 requires set_default_fuses
-## Serial settings:	Baudrate = BAUD
-##									Data Bits = 8
-##									Parity = none
-##									Stop Bits = 1
-##									No Flow Control
+MCU   = atmega168p
+F_CPU = 1000000UL  
+BAUD  = 9600UL
+## Also try BAUD = 19200 or 38400 if you're feeling lucky.
 
-
-## This is where your main() routine lives 
-MAIN = serialLoopback.c
-
-## If you've split your program into multiple .c / .h files, 
-## include the additional source (in same directory) here 
-LOCAL_SOURCE = 
-
-## Here you can link to one more directory (and multiple .c files)
-EXTRA_SOURCE_DIR = ../../AVR-Programming-Library/
-EXTRA_SOURCE_FILES = USART.c
+## A directory for common include files and the simple USART library.
+## If you move either the current folder or the Library folder, you'll 
+##  need to change this path to match.
+LIBDIR = ../../AVR-Programming-Library
 
 ##########------------------------------------------------------##########
 ##########                 Programmer Defaults                  ##########
@@ -40,6 +25,17 @@ PROGRAMMER_TYPE = usbtiny
 PROGRAMMER_ARGS = 	
 
 ##########------------------------------------------------------##########
+##########                  Program Locations                   ##########
+##########     Won't need to change if they're in your PATH     ##########
+##########------------------------------------------------------##########
+
+CC = avr-gcc
+OBJCOPY = avr-objcopy
+OBJDUMP = avr-objdump
+AVRSIZE = avr-size
+AVRDUDE = avrdude
+
+##########------------------------------------------------------##########
 ##########                   Makefile Magic!                    ##########
 ##########         Summary:                                     ##########
 ##########             We want a .hex file                      ##########
@@ -48,51 +44,59 @@ PROGRAMMER_ARGS =
 ##########        You shouldn't need to edit below.             ##########
 ##########------------------------------------------------------##########
 
-## Defined programs / locations
-CC = avr-gcc
-OBJCOPY = avr-objcopy
-OBJDUMP = avr-objdump
-AVRSIZE = avr-size
-AVRDUDE = avrdude
+## The name of your project (without the .c)
+# TARGET = blinkLED
+## Or name it automatically after the enclosing directory
+TARGET = $(lastword $(subst /, ,$(CURDIR)))
+
+# Object files: will find all .c/.h files in current directory
+#  and in LIBDIR.  If you have any other (sub-)directories with code,
+#  you can add them in to SOURCES below in the wildcard statement.
+SOURCES=$(wildcard *.c $(LIBDIR)/*.c)
+OBJECTS=$(SOURCES:.c=.o)
+HEADERS=$(SOURCES:.c=.h)
 
 ## Compilation options, type man avr-gcc if you're curious.
-CFLAGS = -mmcu=$(MCU) -DF_CPU=$(F_CPU)UL -DBAUD=$(BAUD) -Os -I. -I$(EXTRA_SOURCE_DIR)
+CPPFLAGS = -DF_CPU=$(F_CPU) -DBAUD=$(BAUD) -I. -I$(LIBDIR)
+CFLAGS = -Os -g -std=gnu99 -Wall
+## Use short (8-bit) data types 
 CFLAGS += -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums 
-CFLAGS += -Wall -Wstrict-prototypes
-CFLAGS += -g -ggdb
-CFLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--relax
-CFLAGS += -std=gnu99
-## CFLAGS += -Wl,-u,vfprintf -lprintf_flt -lm  ## for floating-point printf
-## CFLAGS += -Wl,-u,vfprintf -lprintf_min      ## for smaller printf
+## Splits up object files per function
+CFLAGS += -ffunction-sections -fdata-sections 
+LDFLAGS = -Wl,-Map,$(TARGET).map 
+## Optional, but often ends up with smaller code
+LDFLAGS += -Wl,--gc-sections 
+## Relax shrinks code even more, but makes disassembly messy
+## LDFLAGS += -Wl,--relax
+## LDFLAGS += -Wl,-u,vfprintf -lprintf_flt -lm  ## for floating-point printf
+## LDFLAGS += -Wl,-u,vfprintf -lprintf_min      ## for smaller printf
+TARGET_ARCH = -mmcu=$(MCU)
 
-## Lump target and extra source files together
-TARGET = $(strip $(basename $(MAIN)))
-SRC = $(TARGET).c
-EXTRA_SOURCE = $(addprefix $(EXTRA_SOURCE_DIR), $(EXTRA_SOURCE_FILES))
-SRC += $(EXTRA_SOURCE) 
-SRC += $(LOCAL_SOURCE) 
+## Explicit pattern rules:
+##  To make .o files from .c files 
+%.o: %.c $(HEADERS) Makefile
+	 $(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c -o $@ $<;
 
-## List of all header files
-HEADERS = $(SRC:.c=.h) 
-
-## For every .c file, compile an .o object file
-OBJ = $(SRC:.c=.o) 
-
-## Generic Makefile targets.  (Only .hex file is necessary)
-all: $(TARGET).hex
+$(TARGET).elf: $(OBJECTS)
+	$(CC) $(LDFLAGS) $(TARGET_ARCH) $^ $(LDLIBS) -o $@
 
 %.hex: %.elf
-	$(OBJCOPY) -R .eeprom -O ihex $< $@
-
-%.elf: $(SRC)
-	$(CC) $(CFLAGS) $(SRC) --output $@ 
+	 $(OBJCOPY) -j .text -j .data -O ihex $< $@
 
 %.eeprom: %.elf
 	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O ihex $< $@ 
 
+%.lst: %.elf
+	$(OBJDUMP) -S $< > $@
+
+## These targets don't have files named after them
+.PHONY: all disassemble disasm eeprom size clean squeaky_clean flash fuses
+
+all: $(TARGET).hex 
+
 debug:
 	@echo
-	@echo "Source files:"   $(SRC)
+	@echo "Source files:"   $(SOURCES)
 	@echo "MCU, F_CPU, BAUD:"  $(MCU), $(F_CPU), $(BAUD)
 	@echo	
 
@@ -103,11 +107,6 @@ debug:
 disassemble: $(TARGET).lst
 
 disasm: disassemble
-
-eeprom: $(TARGET).eeprom
-
-%.lst: %.elf
-	$(OBJDUMP) -S $< > $@
 
 # Optionally show how big the resulting program is 
 size:  $(TARGET).elf
@@ -120,7 +119,7 @@ clean:
 	$(TARGET).eeprom
 
 squeaky_clean:
-	rm -f *.elf *.hex *.obj *.o *.d *.eep *.lst *.lss *.sym *.map *~
+	rm -f *.elf *.hex *.obj *.o *.d *.eep *.lst *.lss *.sym *.map *~ *.eeprom
 
 ##########------------------------------------------------------##########
 ##########              Programmer-specific details             ##########
@@ -129,7 +128,6 @@ squeaky_clean:
 
 flash: $(TARGET).hex 
 	$(AVRDUDE) -c $(PROGRAMMER_TYPE) -p $(MCU) $(PROGRAMMER_ARGS) -U flash:w:$<
-flash: size
 
 ## An alias
 program: flash
@@ -166,7 +164,7 @@ flash_109: flash
 
 ## Mega 48, 88, 168, 328 default values
 LFUSE = 0x62
-HFUSE = 0xDF
+HFUSE = 0xdf
 EFUSE = 0x00
 
 ## Generic 
@@ -184,15 +182,9 @@ set_default_fuses:  fuses
 
 ## Set the fuse byte for full-speed mode
 ## Note: can also be set in firmware for modern chips
-set_fast_speed: LFUSE = 0xE2
-set_fast_speed: FUSE_STRING = -U lfuse:w:$(LFUSE):m 
-set_fast_speed: fuses
-
-## Set the fuse byte for default-speed mode
-set_default_speed: LFUSE = 0x62
-set_default_speed: FUSE_STRING = -U lfuse:w:$(LFUSE):m 
-set_default_speed: fuses
-
+set_fast_fuse: LFUSE = 0xE2
+set_fast_fuse: FUSE_STRING = -U lfuse:w:$(LFUSE):m 
+set_fast_fuse: fuses
 
 ## Set the EESAVE fuse byte to preserve EEPROM across flashes
 set_eeprom_save_fuse: HFUSE = 0xD7

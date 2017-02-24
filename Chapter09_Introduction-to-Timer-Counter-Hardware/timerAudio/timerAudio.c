@@ -16,9 +16,10 @@ static inline void initTimer(void) {
   TCCR0B |= (1 << CS00) | (1 << CS01);               /* CPU clock / 64 */
 }
 
-static inline void playNote(uint8_t wavelength, uint16_t duration) {
+static inline void playNote(uint8_t period, uint16_t duration) {
 
-  OCR0A = wavelength;                                     /* set pitch */
+  TCNT0 = 0;                                      /* reset the counter */
+  OCR0A = period;                                     /* set pitch */
   SPEAKER_DDR |= (1 << SPEAKER);           /* enable output on speaker */
 
   while (duration) {                                 /* Variable delay */
@@ -44,5 +45,5 @@ int main(void) {
     _delay_ms(1000);
 
   }                                                  /* End event loop */
-  return (0);                            /* This line is never reached */
+  return 0;                            /* This line is never reached */
 }
